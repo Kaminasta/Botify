@@ -1,0 +1,25 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+	<PropertyGroup>
+		<PackageId>Botify</PackageId>
+		<Version>0.1.0</Version>
+		<Authors>Kaminasta</Authors>
+		<Description>Botify — лёгкая C# библиотека для удобной работы с Telegram-ботами, полностью интегрируется с Dependency Injection для чистой и модульной архитектуры.</Description>
+		<PackageLicenseExpression>MIT</PackageLicenseExpression>
+		<RepositoryUrl>https://github.com/Kaminasta/Botify</RepositoryUrl>
+	</PropertyGroup>
+
+	<ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Configuration" Version="10.0.2" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.2" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.2" PrivateAssets="all" />
+    <PackageReference Include="Telegram.Bot" Version="22.8.1" />
+  </ItemGroup>
+
+</Project>
