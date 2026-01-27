@@ -59,7 +59,9 @@ public class Program
 
 ---
 
-## 🔧 Пример callback-обработчика
+## 🔧 Примеры обработчиков
+
+### Callbacks
 
 ```csharp
 [CallbackHandler]
@@ -68,7 +70,41 @@ public class CallbacksHandler
     [Callback(Callbacks.Change)]
     public async Task ChangeCallback(ITelegramBotClient client, Update update, CancellationToken cancellationToken)
     {
-        // Обработка callback с выбором роли пользователя
+        // Обработка callback Callbacks.Change
+    }
+}
+```
+### Commands
+
+```csharp
+[CommandHandler]
+public class CommandsHandler
+{
+    [Callback("start", "Описание комманды")]
+    public async Task StartCommand(ITelegramBotClient client, Update update, CancellationToken cancellationToken)
+    {
+        // Обработка command start
+    }
+}
+```
+
+### Message
+
+```csharp
+[MessageHandler]
+public class MessagesHandler
+{
+    // Regex
+    [Message("привет|hi")] 
+    public async Task HelloMessage(ITelegramBotClient client, Update update, CancellationToken cancellationToken)
+    {
+        // Обработка сообщений "привет" и "hi"
+    }
+
+    [Message(".*")]
+    public async Task AllMessage(ITelegramBotClient client, Update update, CancellationToken cancellationToken)
+    {
+        // Обработка всех остальных сообщений
     }
 }
 ```
