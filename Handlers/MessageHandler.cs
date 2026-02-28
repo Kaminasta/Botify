@@ -54,7 +54,8 @@ public class MessageHandler
                         Instance = instance!,
                         Method = method,
                         Pattern = attr.Pattern,
-                        Regex = attr.Regex
+                        Regex = attr.Regex,
+                        Types = attr.Types
                     });
 
                     _logger.Log($"Message handler '{attr.Pattern}' -> {type.FullName}.{method.Name}", LogLevel.Debug);
@@ -66,22 +67,28 @@ public class MessageHandler
     public async Task HandleAsync(ITelegramBotClient client, Update update, CancellationToken cancellationToken)
     {
         var message = update.Message;
-        if (message == null || message.Type != MessageType.Text)
+
+        if (message == null)
             return;
 
-        var text = message.Text!;
+        var text = 
+            !string.IsNullOrEmpty(message.Text) ? message.Text :
+            !string.IsNullOrEmpty(message.Caption) ? message.Caption : string.Empty;
 
         foreach (var handler in _messageHandlers)
         {
+            if (!handler.Types.Contains(message.Type))
+                continue;
+
             if (handler.Regex.IsMatch(text))
             {
                 var parameters = handler.Method.GetParameters();
                 object?[] args;
 
                 if (parameters.Length == 3)
-                    args = new object?[] { client, update, cancellationToken };
+                    args = [client, update, cancellationToken];
                 else if (parameters.Length == 2)
-                    args = new object?[] { client, update };
+                    args = [client, update];
                 else
                     args = Array.Empty<object>();
 
@@ -101,5 +108,6 @@ public class MessageHandler
         public MethodInfo Method { get; set; } = null!;
         public string Pattern { get; set; } = string.Empty;
         public Regex Regex { get; set; } = null!;
+        public MessageType[] Types { get; set; } = [MessageType.Text];
     }
 }

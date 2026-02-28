@@ -1,4 +1,5 @@
 ﻿using System.Text.RegularExpressions;
+using Telegram.Bot.Types.Enums;
 
 namespace Botify.Attributes;
 
@@ -7,16 +8,25 @@ public class MessageAttribute : Attribute
 {
     public string Pattern { get; }
     public Regex Regex { get; }
+    public MessageType[] Types { get; }
 
-    public MessageAttribute(string pattern)
+    public MessageAttribute(
+        string pattern, 
+        MessageType type = MessageType.Text, 
+        RegexOptions regexOptions = RegexOptions.IgnoreCase)
     {
         Pattern = pattern;
-        Regex = new Regex(pattern, RegexOptions.IgnoreCase | RegexOptions.Compiled);
+        Types = [type];
+        Regex = new Regex(pattern, regexOptions | RegexOptions.Compiled);
     }
 
-    public MessageAttribute(string pattern, RegexOptions regexOptions)
+    public MessageAttribute(
+        string pattern, 
+        MessageType[] types, 
+        RegexOptions regexOptions = RegexOptions.IgnoreCase)
     {
         Pattern = pattern;
+        Types = types;
         Regex = new Regex(pattern, regexOptions | RegexOptions.Compiled);
     }
 }
