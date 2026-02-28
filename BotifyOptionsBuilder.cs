@@ -7,6 +7,7 @@ public class BotifyOptionsBuilder
     public string BotToken { get; private set; } = string.Empty;
     public char CommandStartChar { get; private set; } = '/';
     public char CallbackSplitChar { get; private set; } = '_';
+    public char InlineSplitChar { get; private set; } = ' ';
     
     public ILogger? Logger { get; private set; }
     public LogLevel MinimumLogLevel { get; private set; } = LogLevel.Debug;

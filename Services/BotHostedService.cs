@@ -13,6 +13,7 @@ public class BotHostedService : IHostedService
     private readonly CommandHandler _commands;
     private readonly CallbackHandler _callbacks;
     private readonly MessageHandler _messages;
+    private readonly InlineHandler _inlines;      // ← добавили
     private readonly LoggerService _logger;
 
     public BotHostedService(
@@ -20,12 +21,14 @@ public class BotHostedService : IHostedService
         CommandHandler commands,
         CallbackHandler callbacks,
         MessageHandler messages,
+        InlineHandler inlines,                     // ← добавили
         LoggerService logger)
     {
         _botClient = botClient;
         _commands = commands;
         _callbacks = callbacks;
         _messages = messages;
+        _inlines = inlines;
         _logger = logger;
     }
 
@@ -48,15 +51,27 @@ public class BotHostedService : IHostedService
 
     private async Task HandleUpdateAsync(ITelegramBotClient client, Update update, CancellationToken ct)
     {
-        if (update.Message != null)
+        switch (update.Type)
         {
-            bool isHandled = await _commands.HandleAsync(client, update, ct);
+            case Telegram.Bot.Types.Enums.UpdateType.Message:
+                bool isHandled = await _commands.HandleAsync(client, update, ct);
 
-            if (!isHandled)
-                await _messages.HandleAsync(client, update, ct);
+                if (!isHandled)
+                    await _messages.HandleAsync(client, update, ct);
+                break;
+
+            case Telegram.Bot.Types.Enums.UpdateType.CallbackQuery:
+                await _callbacks.HandleAsync(client, update, ct);
+                break;
+
+            case Telegram.Bot.Types.Enums.UpdateType.InlineQuery:
+                await _inlines.HandleAsync(client, update, ct);
+                break;
+
+            default:
+                _logger.Log($"Unhandled update type: {update.Type}", LogLevel.Debug);
+                break;
         }
-        else if (update.CallbackQuery != null)
-            await _callbacks.HandleAsync(client, update, ct);
     }
 
     private Task HandleErrorAsync(ITelegramBotClient client, Exception ex, CancellationToken ct)

@@ -90,7 +90,6 @@ public class MessageHandler
                 if (result is Task task)
                     await task;
 
-                // Можно завершить после первого совпадения, если нужно
                 break;
             }
         }

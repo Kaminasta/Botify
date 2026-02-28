@@ -42,15 +42,18 @@ public static class ServiceCollectionExtensions
 
             if (type.GetCustomAttribute<CommandHandlerAttribute>() != null ||
                 type.GetCustomAttribute<CallbackHandlerAttribute>() != null ||
-                type.GetCustomAttribute<MessageHandlerAttribute>() != null)
+                type.GetCustomAttribute<MessageHandlerAttribute>() != null ||
+                type.GetCustomAttribute<InlineHandlerAttribute>() != null)
+            {
                 services.AddTransient(type);
+            }
         }
 
         services.AddSingleton<CommandHandler>();
         services.AddSingleton<CallbackHandler>();
         services.AddSingleton<MessageHandler>();
+        services.AddSingleton<InlineHandler>();
 
         return services;
     }
-
 }
