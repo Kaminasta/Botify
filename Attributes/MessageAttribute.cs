@@ -8,7 +8,7 @@ public class MessageAttribute : Attribute
 {
     public string Pattern { get; }
     public Regex Regex { get; }
-    public MessageType[] Types { get; }
+    public HashSet<MessageType> Types { get; }
 
     public MessageAttribute(
         string pattern, 
@@ -21,12 +21,12 @@ public class MessageAttribute : Attribute
     }
 
     public MessageAttribute(
-        string pattern, 
-        MessageType[] types, 
+        string pattern,
+        MessageType[] types,
         RegexOptions regexOptions = RegexOptions.IgnoreCase)
     {
         Pattern = pattern;
-        Types = types;
+        Types = [.. types ?? throw new ArgumentNullException(nameof(types))];
         Regex = new Regex(pattern, regexOptions | RegexOptions.Compiled);
     }
 }

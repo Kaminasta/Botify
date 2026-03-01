@@ -58,7 +58,7 @@ public class MessageHandler
                         Types = attr.Types
                     });
 
-                    _logger.Log($"Message handler '{attr.Pattern}' -> {type.FullName}.{method.Name}", LogLevel.Debug);
+                    _logger.Log($"Message handler '{attr.Pattern}' ({string.Join(", ", attr.Types)}) -> {type.FullName}.{method.Name}", LogLevel.Debug);
                 }
             }
         }
@@ -108,6 +108,6 @@ public class MessageHandler
         public MethodInfo Method { get; set; } = null!;
         public string Pattern { get; set; } = string.Empty;
         public Regex Regex { get; set; } = null!;
-        public MessageType[] Types { get; set; } = [MessageType.Text];
+        public HashSet<MessageType> Types { get; set; } = [MessageType.Text];
     }
 }
