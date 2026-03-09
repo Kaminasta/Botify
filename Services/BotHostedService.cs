@@ -1,9 +1,12 @@
 ﻿using Botify.Handlers;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using Telegram.Bot;
 using Telegram.Bot.Polling;
 using Telegram.Bot.Types;
+using Telegram.Bot.Types.Enums;
 
 namespace Botify.Services;
 
@@ -13,7 +16,8 @@ public class BotHostedService : IHostedService
     private readonly CommandHandler _commands;
     private readonly CallbackHandler _callbacks;
     private readonly MessageHandler _messages;
-    private readonly InlineHandler _inlines;      // ← добавили
+    private readonly InlineHandler _inlines;
+    private readonly PaymentHandler _payment;
     private readonly LoggerService _logger;
 
     public BotHostedService(
@@ -21,7 +25,8 @@ public class BotHostedService : IHostedService
         CommandHandler commands,
         CallbackHandler callbacks,
         MessageHandler messages,
-        InlineHandler inlines,                     // ← добавили
+        InlineHandler inlines,
+        PaymentHandler payment,
         LoggerService logger)
     {
         _botClient = botClient;
@@ -29,6 +34,7 @@ public class BotHostedService : IHostedService
         _callbacks = callbacks;
         _messages = messages;
         _inlines = inlines;
+        _payment = payment;
         _logger = logger;
     }
 
@@ -53,19 +59,26 @@ public class BotHostedService : IHostedService
     {
         switch (update.Type)
         {
-            case Telegram.Bot.Types.Enums.UpdateType.Message:
+            case UpdateType.Message:
+                if (update.Message?.SuccessfulPayment != null)
+                    await _payment.HandleAsync(client, update, ct);
+
                 bool isHandled = await _commands.HandleAsync(client, update, ct);
 
                 if (!isHandled)
                     await _messages.HandleAsync(client, update, ct);
                 break;
 
-            case Telegram.Bot.Types.Enums.UpdateType.CallbackQuery:
+            case UpdateType.CallbackQuery:
                 await _callbacks.HandleAsync(client, update, ct);
                 break;
 
-            case Telegram.Bot.Types.Enums.UpdateType.InlineQuery:
+            case UpdateType.InlineQuery:
                 await _inlines.HandleAsync(client, update, ct);
+                break;
+
+            case UpdateType.PreCheckoutQuery:
+                await _payment.HandleAsync(client, update, ct);
                 break;
 
             default:

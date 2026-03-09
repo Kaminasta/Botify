@@ -43,7 +43,9 @@ public static class ServiceCollectionExtensions
             if (type.GetCustomAttribute<CommandHandlerAttribute>() != null ||
                 type.GetCustomAttribute<CallbackHandlerAttribute>() != null ||
                 type.GetCustomAttribute<MessageHandlerAttribute>() != null ||
-                type.GetCustomAttribute<InlineHandlerAttribute>() != null)
+                type.GetCustomAttribute<InlineHandlerAttribute>() != null ||
+                type.GetCustomAttribute<PaymentHandlerAttribute>() != null
+                )
             {
                 services.AddTransient(type);
             }
@@ -53,6 +55,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<CallbackHandler>();
         services.AddSingleton<MessageHandler>();
         services.AddSingleton<InlineHandler>();
+        services.AddSingleton<PaymentHandler>();
 
         return services;
     }
