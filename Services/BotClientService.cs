@@ -11,6 +11,10 @@ public class BotClientService
         if (string.IsNullOrWhiteSpace(options.BotToken))
             throw new ArgumentException("BotToken is required", nameof(options.BotToken));
 
-        Client = new TelegramBotClient(options.BotToken);
+        var httpClient = options.HttpClientHandler != null ? 
+            new HttpClient(options.HttpClientHandler) :
+            null;
+
+        Client = new TelegramBotClient(options.BotToken, httpClient);
     }
 }

@@ -12,6 +12,8 @@ public class BotifyOptionsBuilder
     public ILogger? Logger { get; private set; }
     public LogLevel MinimumLogLevel { get; private set; } = LogLevel.Debug;
 
+    public HttpClientHandler? HttpClientHandler { get; private set; }
+
     public BotifyOptionsBuilder SetToken(string token)
     {
         BotToken = token;
@@ -21,6 +23,11 @@ public class BotifyOptionsBuilder
     public BotifyOptionsBuilder SetСommandStartChar(char startChar)
     {
         CommandStartChar = startChar;
+        return this;
+    }
+    public BotifyOptionsBuilder SetHttpClientHandler(HttpClientHandler httpClientHandler)
+    {
+        HttpClientHandler = httpClientHandler;
         return this;
     }
 
