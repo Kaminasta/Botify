@@ -8,7 +8,7 @@
 
 	<PropertyGroup>
 		<PackageId>Botify</PackageId>
-		<Version>0.1.31</Version>
+		<Version>0.1.4</Version>
 		<Authors>Kaminasta</Authors>
 		<Description>Botify — лёгкая C# библиотека для удобной работы с Telegram-ботами, полностью интегрируется с Dependency Injection для чистой и модульной архитектуры.</Description>
 		<PackageLicenseExpression>MIT</PackageLicenseExpression>

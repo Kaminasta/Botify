@@ -5,6 +5,7 @@ namespace Botify;
 public class BotifyOptionsBuilder
 {
     public string BotToken { get; private set; } = string.Empty;
+    public string? BaseURL { get; private set; } = default;
     public char CommandStartChar { get; private set; } = '/';
     public char CallbackSplitChar { get; private set; } = '_';
     public char InlineSplitChar { get; private set; } = ' ';
@@ -17,6 +18,12 @@ public class BotifyOptionsBuilder
     public BotifyOptionsBuilder SetToken(string token)
     {
         BotToken = token;
+        return this;
+    }
+
+    public BotifyOptionsBuilder SetBaseURL(string baseUrl)
+    {
+        BaseURL = baseUrl;
         return this;
     }
 
