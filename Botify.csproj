@@ -9,14 +9,19 @@
 
 	<PropertyGroup>
 		<PackageId>Botify</PackageId>
-		<Version>0.1.5</Version>
+		<Version>0.1.50</Version>
 		<Authors>Kaminasta</Authors>
 		<Description>Botify — лёгкая C# библиотека для удобной работы с Telegram-ботами, полностью интегрируется с Dependency Injection для чистой и модульной архитектуры.</Description>
 		<PackageLicenseExpression>MIT</PackageLicenseExpression>
 		<RepositoryUrl>https://github.com/Kaminasta/Botify</RepositoryUrl>
+		<PackageReadmeFile>README.md</PackageReadmeFile>
 	</PropertyGroup>
 
 	<ItemGroup>
+		<None Include="README.md" Pack="true" PackagePath="\" />
+	</ItemGroup>
+
+<ItemGroup>
     <PackageReference Include="HttpToSocks5Proxy" Version="1.4.0" />
     <PackageReference Include="Microsoft.Extensions.Configuration" Version="10.0.2" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.2" />
