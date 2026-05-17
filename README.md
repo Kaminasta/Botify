@@ -1,7 +1,6 @@
 ﻿# Botify 🚀
 
-Лёгкая C# библиотека для удобной работы с Telegram-ботами с полной интеграцией в Dependency Injection.
-Позволяет быстро и удобно создавать ботов с обработкой команд, сообщений и callback-запросов.
+Botify — лёгкий C#-фреймворк для создания Telegram-ботов с интеграцией в Dependency Injection и удобной моделью атрибутов. Он позволяет быстро собирать ботов с обработкой команд, сообщений, callback-запросов, inline-query и платежных событий.
 
 ## ⚡ Особенности
 
@@ -15,15 +14,17 @@
 
 ## 📦 Установка
 
-Через NuGet:
+Через NuGet-источник проекта:
 
 ```bash
-dotnet add package Botify --source <директория, где находится скачанный релиз Botify>
+ dotnet add package Botify --source <папка_или_feed_с_Botify>
 ```
+
+Если используется локальная сборка, можно подключить пакет из собственного feed или артефактов релиза.
 
 ---
 
-## 🛠 Пример использования
+## 🛠 Быстрый старт
 
 ```csharp
 public class Program
@@ -48,68 +49,177 @@ public class Program
 
 ---
 
-## 📝 Основные концепции
+## 🧱 Основные концепции
 
 | Концепт | Описание |
-|----------|----------|
-| **CommandHandler** | Обработка команд, например `/start`, `/schedule`. |
-| **MessageHandler** | Обработка текстовых сообщений от пользователей. |
-| **CallbackHandler** | Обработка callback-запросов от inline-клавиатур. |
-| **BotifyOptions** | Настройки бота (токен, start char command) |
+|---|---|
+| `CommandHandler` | Обработка команд вида `/start`, `/help`, `/schedule`. |
+| `CallbackHandler` | Обработка `CallbackQuery` от inline-кнопок. |
+| `MessageHandler` | Обработка входящих сообщений по regex-паттернам. |
+| `InlineHandler` | Обработка inline-запросов Telegram. |
+| `PaymentHandler` | Обработка платежных событий Telegram. |
+| `BotifyOptionsBuilder` | Конфигурация бота: токен, разделители, логирование, HTTP-параметры. |
 
 ---
 
 ## 🔧 Примеры обработчиков
 
-### Callbacks
+### Команды
 
 ```csharp
-[CallbackHandler]
-public class CallbacksHandler
-{
-    [Callback(Callbacks.Change)]
-    public async Task ChangeCallback(ITelegramBotClient client, Update update, CancellationToken cancellationToken)
-    {
-        // Обработка callback Callbacks.Change
-    }
-}
-```
-### Commands
+using Botify.Attributes;
+using Telegram.Bot;
+using Telegram.Bot.Types;
 
-```csharp
 [CommandHandler]
 public class CommandsHandler
 {
-    [Callback("start", "Описание комманды")]
-    public async Task StartCommand(ITelegramBotClient client, Update update, CancellationToken cancellationToken)
+    [Command("start", "Начать работу с ботом")]
+    public async Task StartCommand(ITelegramBotClient client, Update update, CancellationToken ct)
     {
-        // Обработка command start
+        if (update.Message == null)
+            return;
+
+        await client.SendMessage(update.Message.Chat.Id, "Привет! Я Botify-бот.", cancellationToken: ct);
     }
 }
 ```
 
-### Message
+### Callback-запросы
 
 ```csharp
+using Botify.Attributes;
+using Telegram.Bot;
+using Telegram.Bot.Types;
+
+[CallbackHandler]
+public class CallbacksHandler
+{
+    [Callback("change")]
+    public async Task ChangeCallback(ITelegramBotClient client, Update update, CancellationToken ct)
+    {
+        if (update.CallbackQuery?.Message == null)
+            return;
+
+        await client.EditMessageText(
+            update.CallbackQuery.Message.Chat.Id,
+            update.CallbackQuery.Message.MessageId,
+            "Изменено",
+            cancellationToken: ct);
+    }
+}
+```
+
+### Сообщения
+
+```csharp
+using Botify.Attributes;
+using Telegram.Bot;
+using Telegram.Bot.Types;
+using Telegram.Bot.Types.Enums;
+
 [MessageHandler]
 public class MessagesHandler
 {
-    // Regex
-    [Message("привет|hi")] 
-    public async Task HelloMessage(ITelegramBotClient client, Update update, CancellationToken cancellationToken)
+    [Message("^(привет|hello)$", MessageType.Text)]
+    public async Task HelloMessage(ITelegramBotClient client, Update update, CancellationToken ct)
     {
-        // Обработка сообщений "привет" и "hi"
+        if (update.Message == null)
+            return;
+
+        await client.SendMessage(update.Message.Chat.Id, "Привет!", cancellationToken: ct);
     }
 
     [Message(".*")]
-    public async Task AllMessage(ITelegramBotClient client, Update update, CancellationToken cancellationToken)
+    public async Task FallbackMessage(ITelegramBotClient client, Update update, CancellationToken ct)
     {
-        // Обработка всех остальных сообщений
+        if (update.Message == null)
+            return;
+
+        await client.SendMessage(update.Message.Chat.Id, "Неизвестное сообщение.", cancellationToken: ct);
     }
 }
 ```
 
-## 📖 Пример интеграции с базой данных
+### Inline-запросы
+
+```csharp
+using Botify.Attributes;
+using Telegram.Bot;
+using Telegram.Bot.Types;
+
+[InlineHandler]
+public class InlineSearchHandler
+{
+    [Inline("search")]
+    public async Task Search(ITelegramBotClient client, Update update, CancellationToken ct)
+    {
+        if (update.InlineQuery == null)
+            return;
+
+        // обработка inline query
+    }
+}
+```
+
+### Платежи
+
+```csharp
+using Botify.Attributes;
+using Telegram.Bot;
+using Telegram.Bot.Types;
+
+[PaymentHandler]
+public class PaymentsHandler
+{
+    [PreCheckoutPayment]
+    public Task PreCheckout(ITelegramBotClient client, Update update, CancellationToken ct)
+    {
+        // проверка заказа перед оплатой
+        return Task.CompletedTask;
+    }
+
+    [SuccessfulPayment]
+    public Task SuccessfulPayment(ITelegramBotClient client, Update update, CancellationToken ct)
+    {
+        // обработка успешной оплаты
+        return Task.CompletedTask;
+    }
+}
+```
+
+---
+
+## ⚙️ Конфигурация
+
+`BotifyOptionsBuilder` позволяет настроить:
+
+- токен бота;
+- базовый URL Telegram API;
+- символ начала команды;
+- разделитель callback-данных;
+- разделитель inline-данных;
+- логирование;
+- пользовательский `HttpClientHandler`.
+
+Пример:
+
+```csharp
+builder.Services.AddBotify(options =>
+{
+    options.SetToken(botToken);
+    options.SetBaseURL("https://api.telegram.org");
+    options.UseLogger(logger, LogLevel.Information);
+});
+```
+
+---
+
+## 🗄 Работа с базой данных
+
+Botify не ограничивает способ хранения данных. Можно использовать EF Core, Dapper или любой другой подход.
+
+Пример с EF Core:
 
 ```csharp
 builder.Services.AddDbContext<AppDbContext>(options =>
