@@ -32,7 +32,7 @@
 /// public class UserMessages
 /// {
 ///     [Message("^привет$")]
-///     public async Task Hello(...)
+///     public async Task Hello(BotifyContext context)
 /// }
 /// </code>
 /// </remarks>

@@ -16,7 +16,7 @@
 /// public class SearchInlineHandler
 /// {
 ///     [Inline("search")]
-///     public async Task Search(...)
+///     public async Task Search(BotifyContext context)
 /// }
 /// </code>
 /// </remarks>

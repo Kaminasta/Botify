@@ -16,7 +16,7 @@
 /// public class SettingsCallbacks
 /// {
 ///     [Callback("settings")]
-///     public async Task SettingsCallback(...)
+///     public async Task SettingsCallback(BotifyContext context)
 /// }
 /// </code>
 /// </remarks>

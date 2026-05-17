@@ -16,7 +16,7 @@
 /// public class UserCommands
 /// {
 ///     [Command("start", "Начать работу с ботом")]
-///     public async Task StartCommand(...)
+///     public async Task StartCommand(BotifyContext context)
 /// }
 /// </code>
 /// </remarks>
