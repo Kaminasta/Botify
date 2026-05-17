@@ -231,3 +231,4 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 ## 🔗 Ссылки
 
 - GitHub: [https://github.com/Kaminasta/Botify](https://github.com/Kaminasta/Botify)
+- Documentation: [https://kaminasta.github.io/doc/botify/api/Botify](https://kaminasta.github.io/doc/botify/api/Botify)
