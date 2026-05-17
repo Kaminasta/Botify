@@ -10,7 +10,7 @@ using static Botify.Models.PaymentInfo;
 
 namespace Botify.Handlers;
 
-public class PaymentHandler
+internal class PaymentHandler
 {
     private readonly IServiceProvider _serviceProvider;
     private readonly LoggerService _logger;

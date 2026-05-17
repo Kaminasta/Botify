@@ -1,16 +1,15 @@
 ﻿using Botify.Attributes;
+using Botify.Models;
 using Botify.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using System.Reflection;
-using System.Text.RegularExpressions;
 using Telegram.Bot;
 using Telegram.Bot.Types;
-using Telegram.Bot.Types.Enums;
 
 namespace Botify.Handlers;
 
-public class MessageHandler
+internal class MessageHandler
 {
     private readonly IServiceProvider _serviceProvider;
     private readonly LoggerService _logger;
@@ -100,14 +99,5 @@ public class MessageHandler
                 break;
             }
         }
-    }
-
-    private class MessageInfo
-    {
-        public object Instance { get; set; } = null!;
-        public MethodInfo Method { get; set; } = null!;
-        public string Pattern { get; set; } = string.Empty;
-        public Regex Regex { get; set; } = null!;
-        public HashSet<MessageType> Types { get; set; } = [MessageType.Text];
     }
 }

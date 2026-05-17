@@ -7,8 +7,23 @@ using System.Reflection;
 
 namespace Botify.Builder;
 
+/// <summary>
+/// Методы расширения для регистрации сервисов Botify.
+/// </summary>
 public static class ServiceCollectionExtensions
 {
+    /// <summary>
+    /// Регистрирует основные сервисы Botify.
+    /// </summary>
+    /// <param name="services">
+    /// Коллекция сервисов приложения.
+    /// </param>
+    /// <param name="configure">
+    /// Делегат конфигурации Botify.
+    /// </param>
+    /// <returns>
+    /// Текущая коллекция сервисов.
+    /// </returns>
     public static IServiceCollection AddBotify(
         this IServiceCollection services,
         Action<BotifyOptionsBuilder> configure)
@@ -31,6 +46,19 @@ public static class ServiceCollectionExtensions
         return services;
     }
 
+    /// <summary>
+    /// Выполняет автоматическую регистрацию обработчиков Botify.
+    /// </summary>
+    /// <remarks>
+    /// Сканирует загруженные сборки и регистрирует классы,
+    /// помеченные handler-атрибутами Botify.
+    /// </remarks>
+    /// <param name="services">
+    /// Коллекция сервисов приложения.
+    /// </param>
+    /// <returns>
+    /// Текущая коллекция сервисов.
+    /// </returns>
     public static IServiceCollection AddBotifyHandlers(this IServiceCollection services)
     {
         var assemblies = AppDomain.CurrentDomain.GetAssemblies();

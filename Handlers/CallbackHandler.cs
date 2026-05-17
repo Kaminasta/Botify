@@ -9,7 +9,7 @@ using Telegram.Bot.Types;
 
 namespace Botify.Handlers;
 
-public class CallbackHandler
+internal class CallbackHandler
 {
     private readonly IServiceProvider _serviceProvider;
     private readonly BotifyOptionsBuilder _options;

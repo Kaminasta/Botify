@@ -2,7 +2,7 @@
 
 namespace Botify.Models;
 
-public class PaymentInfo
+internal class PaymentInfo
 {
     public object Instance { get; }
     public MethodInfo Method { get; }

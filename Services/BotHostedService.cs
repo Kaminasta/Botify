@@ -10,7 +10,7 @@ using Telegram.Bot.Types.Enums;
 
 namespace Botify.Services;
 
-public class BotHostedService : IHostedService
+internal class BotHostedService : IHostedService
 {
     private readonly BotClientService _botClient;
     private readonly CommandHandler _commands;

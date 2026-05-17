@@ -2,7 +2,7 @@
 
 namespace Botify.Models;
 
-public class InlineInfo
+internal class InlineInfo
 {
     public object Instance { get; }
     public MethodInfo Method { get; }

@@ -2,7 +2,7 @@
 
 namespace Botify.Models;
 
-public sealed class CommandInfo
+internal class CommandInfo
 {
     public object Instance { get; }
     public MethodInfo Method { get; }

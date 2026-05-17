@@ -2,7 +2,7 @@
 
 namespace Botify.Models;
 
-public sealed class CallbackInfo
+internal class CallbackInfo
 {
     public object Instance { get; }
     public MethodInfo Method { get; }

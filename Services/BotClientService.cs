@@ -2,7 +2,7 @@
 
 namespace Botify.Services;
 
-public class BotClientService
+internal class BotClientService
 {
     public ITelegramBotClient Client { get; }
 
