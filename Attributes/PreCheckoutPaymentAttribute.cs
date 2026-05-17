@@ -19,7 +19,7 @@
 /// Пример:
 /// <code>
 /// [PreCheckoutPayment]
-/// public async Task OnPreCheckout(ITelegramBotClient client, Update update, CancellationToken ct)
+/// public async Task OnPreCheckout(BotifyContext context)
 /// </code>
 /// </remarks>
 [AttributeUsage(AttributeTargets.Method, Inherited = false, AllowMultiple = false)]

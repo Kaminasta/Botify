@@ -10,7 +10,7 @@
 /// Пример:
 /// <code>
 /// [Command("start", "Начать работу с ботом")]
-/// public async Task StartCommand(ITelegramBotClient client, Update update, CancellationToken ct)
+/// public async Task StartCommand(BotifyContext context)
 /// </code>
 /// </remarks>
 [AttributeUsage(AttributeTargets.Method)]

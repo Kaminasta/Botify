@@ -13,7 +13,7 @@
 /// Пример:
 /// <code>
 /// [Callback("settings")]
-/// public async Task SettingsCallback(ITelegramBotClient client, Update update, CancellationToken ct)
+/// public async Task SettingsCallback(BotifyContext context)
 /// </code>
 /// </remarks>
 [AttributeUsage(AttributeTargets.Method)]

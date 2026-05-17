@@ -13,7 +13,7 @@
 /// Пример:
 /// <code>
 /// [Inline("search")]
-/// public async Task SearchInline(ITelegramBotClient client, Update update, CancellationToken ct)
+/// public async Task SearchInline(BotifyContext context)
 /// </code>
 /// </remarks>
 [AttributeUsage(AttributeTargets.Method)]

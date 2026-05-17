@@ -26,10 +26,10 @@
 /// public class DonatePayments
 /// {
 ///     [PreCheckoutPayment]
-///     public async Task PreCheckout(ITelegramBotClient client, Update update, CancellationToken ct)
+///     public async Task PreCheckout(BotifyContext context)
 ///
 ///     [SuccessfulPayment]
-///     public async Task Successful(ITelegramBotClient client, Update update, CancellationToken ct)
+///     public async Task Successful(BotifyContext context)
 /// }
 /// </code>
 /// </remarks>

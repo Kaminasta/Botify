@@ -17,7 +17,7 @@
 /// Пример:
 /// <code>
 /// [SuccessfulPayment]
-/// public async Task OnPayment(ITelegramBotClient client, Update update, CancellationToken ct)
+/// public async Task OnPayment(BotifyContext context)
 /// </code>
 /// </remarks>
 [AttributeUsage(AttributeTargets.Method, Inherited = false, AllowMultiple = false)]

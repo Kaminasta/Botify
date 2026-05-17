@@ -29,7 +29,7 @@ namespace Botify.Attributes;
 /// Пример:
 /// <code>
 /// [Message("^(привет|hello)$")]
-/// public async Task HelloMessage(ITelegramBotClient client, Update update, CancellationToken ct)
+/// public async Task HelloMessage(BotifyContext context)
 /// </code>
 /// </remarks>
 [AttributeUsage(AttributeTargets.Method)]
