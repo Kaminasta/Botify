@@ -8,3 +8,11 @@ obj/
 *.snk
 
 appsettings.Local.json
+
+# DocFX
+docfx_project/_site/
+docfx_project/api/
+docfx_project/.manifest/
+docfx_project/obj/
+docfx_project/.cache/
+docfx_project/.exported_templates/

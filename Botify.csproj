@@ -24,4 +24,8 @@
     <PackageReference Include="Telegram.Bot" Version="22.9.5.2" />
   </ItemGroup>
 
+	<ItemGroup>
+	  <Folder Include="docfx_project\" />
+	</ItemGroup>
+
 </Project>
