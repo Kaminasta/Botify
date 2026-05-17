@@ -1,4 +1,5 @@
 ﻿using Botify.Attributes;
+using Botify.Factories;
 using Botify.Models;
 using Botify.Services;
 using Microsoft.Extensions.DependencyInjection;
@@ -15,6 +16,7 @@ internal sealed class CommandHandler
     private readonly IServiceProvider _serviceProvider;
     private readonly BotClientService _botClient;
     private readonly BotifyOptionsBuilder _options;
+    private readonly BotifyContextFactory _contextFactory;
     private readonly LoggerService _logger;
 
     private readonly Dictionary<string, CommandInfo> _commandMap = new();
@@ -24,11 +26,13 @@ internal sealed class CommandHandler
         IServiceProvider serviceProvider,
         BotClientService botClient,
         BotifyOptionsBuilder options,
+        BotifyContextFactory contextFactory,
         LoggerService logger)
     {
         _serviceProvider = serviceProvider;
         _botClient = botClient;
         _options = options;
+        _contextFactory = contextFactory;
         _logger = logger;
 
         LoadCommands();
@@ -71,7 +75,9 @@ internal sealed class CommandHandler
                     if (attr == null)
                         continue;
 
-                    ValidateMethodSignature(method);
+                    if (!BotifyContextFactory.ValidateMethodSignature(method))
+                        throw new InvalidOperationException(
+                            $"Method '{method.DeclaringType?.FullName}.{method.Name}' must have signature: Task {method.Name}(BotifyContext context)");
 
                     var commandName = attr.Name.ToLowerInvariant();
 
@@ -122,46 +128,20 @@ internal sealed class CommandHandler
 
         var commandName = parts[0].Split('@', 2)[0].ToLowerInvariant();
 
+        var context = _contextFactory.Create(client, update, cancellationToken);
+
         if (!_commandMap.TryGetValue(commandName, out var command))
         {
-            _logger.Log($"Unknown command: {commandName}", LogLevel.Debug);
+            _logger.Log($"Unknown command '{commandName}' from ID: {message.From?.Id}", LogLevel.Debug);
 
-            // TODO: Вынести SendMessage отсюда и передать управление разработчику
-
-            await client.SendMessage(
-                message.Chat.Id,
-                $"Unknown command: {commandName}",
-                cancellationToken: cancellationToken);
+            if (_options.UnknownCommandHandler != null)
+                await _options.UnknownCommandHandler(context);
 
             return false;
         }
 
-        var context = new BotifyContext
-        {
-            Client = client,
-            Update = update,
-            CancellationToken = cancellationToken,
-            Services = _serviceProvider,
-            Logger = _logger,
-            Options = _options
-        };
-
         await command.Delegate(context);
         return true;
-    }
-
-    private static void ValidateMethodSignature(MethodInfo method)
-    {
-        var parameters = method.GetParameters();
-
-        var valid =
-            method.ReturnType == typeof(Task) &&
-            parameters.Length == 1 &&
-            parameters[0].ParameterType == typeof(BotifyContext);
-
-        if (!valid)
-            throw new InvalidOperationException(
-                $"Method '{method.DeclaringType?.FullName}.{method.Name}' must have signature: Task {method.Name}(BotifyContext context)");
     }
 
     private static CommandInfo CreateCommandInfo(object instance, MethodInfo method)

@@ -1,4 +1,5 @@
 ﻿using Botify.Attributes;
+using Botify.Factories;
 using Botify.Handlers;
 using Botify.Services;
 using Microsoft.Extensions.DependencyInjection;
@@ -28,19 +29,21 @@ public static class ServiceCollectionExtensions
         this IServiceCollection services,
         Action<BotifyOptionsBuilder> configure)
     {
-        services.AddSingleton(sp =>
+        services.AddSingleton<BotifyOptionsBuilder>(sp =>
         {
-            var options = new BotifyOptionsBuilder();
-
             var logger = sp.GetRequiredService<ILogger<BotifyOptionsBuilder>>();
-            options.UseLogger(logger);
+
+            var options = new BotifyOptionsBuilder()
+                .UseLogger(logger);
 
             configure(options);
+
             return options;
         });
 
-        services.AddSingleton<BotClientService>();
         services.AddSingleton<LoggerService>();
+        services.AddSingleton<BotifyContextFactory>();
+        services.AddSingleton<BotClientService>();
         services.AddHostedService<BotHostedService>();
 
         return services;

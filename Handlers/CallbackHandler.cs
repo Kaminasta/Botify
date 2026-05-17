@@ -1,4 +1,5 @@
 ﻿using Botify.Attributes;
+using Botify.Factories;
 using Botify.Models;
 using Botify.Services;
 using Microsoft.Extensions.DependencyInjection;
@@ -13,6 +14,7 @@ internal sealed class CallbackHandler
 {
     private readonly IServiceProvider _serviceProvider;
     private readonly BotifyOptionsBuilder _options;
+    private readonly BotifyContextFactory _contextFactory;
     private readonly LoggerService _logger;
 
     private readonly Dictionary<string, CallbackInfo> _callbackMap = new();
@@ -20,10 +22,12 @@ internal sealed class CallbackHandler
     public CallbackHandler(
         IServiceProvider serviceProvider,
         BotifyOptionsBuilder options,
+        BotifyContextFactory contextFactory,
         LoggerService logger)
     {
         _serviceProvider = serviceProvider;
         _options = options;
+        _contextFactory = contextFactory;
         _logger = logger;
 
         LoadCallbacks();
@@ -68,7 +72,9 @@ internal sealed class CallbackHandler
                     if (attr == null)
                         continue;
 
-                    ValidateMethodSignature(method);
+                    if (!BotifyContextFactory.ValidateMethodSignature(method))
+                        throw new InvalidOperationException(
+                            $"Method '{method.DeclaringType?.FullName}.{method.Name}' must have signature: Task {method.Name}(BotifyContext context)");
 
                     var callbackName = attr.Name.ToLowerInvariant();
 
@@ -100,47 +106,21 @@ internal sealed class CallbackHandler
 
         var callbackName = parts[0].ToLowerInvariant();
 
+        var context = _contextFactory.Create(client, update, cancellationToken);
+
         if (!_callbackMap.TryGetValue(callbackName, out var callback))
         {
             _logger.Log(
                 $"Unknown callback '{callbackName}' from ID: {query.From.Id}",
                 LogLevel.Debug);
 
-            // TODO: Вынести AnswerCallbackQuery отсюда и передать управление разработчику
-
-            await client.AnswerCallbackQuery(
-                query.Id,
-                $"Unknown callback: {callbackName}",
-                cancellationToken: cancellationToken);
+            if (_options.UnknownCallbackHandler != null)
+                await _options.UnknownCallbackHandler(context);
 
             return;
         }
 
-        var context = new BotifyContext
-        {
-            Client = client,
-            Update = update,
-            CancellationToken = cancellationToken,
-            Services = _serviceProvider,
-            Logger = _logger,
-            Options = _options
-        };
-
         await callback.Delegate(context);
-    }
-
-    private static void ValidateMethodSignature(MethodInfo method)
-    {
-        var parameters = method.GetParameters();
-
-        var valid =
-            method.ReturnType == typeof(Task) &&
-            parameters.Length == 1 &&
-            parameters[0].ParameterType == typeof(BotifyContext);
-
-        if (!valid)
-            throw new InvalidOperationException(
-                $"Method '{method.DeclaringType?.FullName}.{method.Name}' must have signature: Task MethodName(BotifyContext context)");
     }
 
     private static CallbackInfo CreateCallbackInfo(

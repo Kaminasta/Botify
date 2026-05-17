@@ -1,4 +1,5 @@
 ﻿using Botify.Attributes;
+using Botify.Factories;
 using Botify.Models;
 using Botify.Services;
 using Microsoft.Extensions.DependencyInjection;
@@ -13,6 +14,7 @@ internal sealed class MessageHandler
 {
     private readonly IServiceProvider _serviceProvider;
     private readonly BotifyOptionsBuilder _options;
+    private readonly BotifyContextFactory _contextFactory;
     private readonly LoggerService _logger;
 
     private readonly List<MessageInfo> _messageHandlers = new();
@@ -20,10 +22,12 @@ internal sealed class MessageHandler
     public MessageHandler(
         IServiceProvider serviceProvider,
         BotifyOptionsBuilder options,
+        BotifyContextFactory contextFactory,
         LoggerService logger)
     {
         _serviceProvider = serviceProvider;
         _options = options;
+        _contextFactory = contextFactory;
         _logger = logger;
 
         LoadMessageHandlers();
@@ -68,7 +72,9 @@ internal sealed class MessageHandler
                     if (attr == null)
                         continue;
 
-                    ValidateMethodSignature(method);
+                    if (!BotifyContextFactory.ValidateMethodSignature(method))
+                        throw new InvalidOperationException(
+                            $"Method '{method.DeclaringType?.FullName}.{method.Name}' must have signature: Task {method.Name}(BotifyContext context)");
 
                     var info = CreateMessageInfo(instance, method);
 
@@ -111,34 +117,12 @@ internal sealed class MessageHandler
             if (!handler.Regex.IsMatch(text))
                 continue;
 
-            var context = new BotifyContext
-            {
-                Client = client,
-                Update = update,
-                CancellationToken = cancellationToken,
-                Services = _serviceProvider,
-                Logger = _logger,
-                Options = _options
-            };
+            var context = _contextFactory.Create(client, update, cancellationToken);
 
             await handler.Delegate(context);
 
             break;
         }
-    }
-
-    private static void ValidateMethodSignature(MethodInfo method)
-    {
-        var parameters = method.GetParameters();
-
-        var valid =
-            method.ReturnType == typeof(Task) &&
-            parameters.Length == 1 &&
-            parameters[0].ParameterType == typeof(BotifyContext);
-
-        if (!valid)
-            throw new InvalidOperationException(
-                $"Method '{method.DeclaringType?.FullName}.{method.Name}' must have signature: Task {method.Name}(BotifyContext context)");
     }
 
     private static MessageInfo CreateMessageInfo(

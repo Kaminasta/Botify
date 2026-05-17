@@ -1,4 +1,5 @@
 ﻿using Botify.Attributes;
+using Botify.Factories;
 using Botify.Models;
 using Botify.Services;
 using Microsoft.Extensions.DependencyInjection;
@@ -13,18 +14,18 @@ namespace Botify.Handlers;
 internal sealed class PaymentHandler
 {
     private readonly IServiceProvider _serviceProvider;
-    private readonly BotifyOptionsBuilder _options;
+    private readonly BotifyContextFactory _contextFactory;
     private readonly LoggerService _logger;
 
     private readonly List<PaymentInfo> _handlers = new();
 
     public PaymentHandler(
         IServiceProvider serviceProvider,
-        BotifyOptionsBuilder options,
+        BotifyContextFactory contextFactory,
         LoggerService logger)
     {
         _serviceProvider = serviceProvider;
-        _options = options;
+        _contextFactory = contextFactory;
         _logger = logger;
 
         LoadHandlers();
@@ -73,7 +74,9 @@ internal sealed class PaymentHandler
                     if (paymentType == null)
                         continue;
 
-                    ValidateMethodSignature(method);
+                    if (!BotifyContextFactory.ValidateMethodSignature(method))
+                        throw new InvalidOperationException(
+                            $"Method '{method.DeclaringType?.FullName}.{method.Name}' must have signature: Task {method.Name}(BotifyContext context)");
 
                     _handlers.Add(CreatePaymentInfo(
                         instance,
@@ -114,34 +117,12 @@ internal sealed class PaymentHandler
         if (handlersToInvoke.Count == 0)
             return false;
 
-        var context = new BotifyContext
-        {
-            Client = client,
-            Update = update,
-            CancellationToken = cancellationToken,
-            Services = _serviceProvider,
-            Logger = _logger,
-            Options = _options
-        };
+        var context = _contextFactory.Create(client, update, cancellationToken);
 
         foreach (var handler in handlersToInvoke)
             await handler.Delegate(context);
 
         return true;
-    }
-
-    private static void ValidateMethodSignature(MethodInfo method)
-    {
-        var parameters = method.GetParameters();
-
-        var valid =
-            method.ReturnType == typeof(Task) &&
-            parameters.Length == 1 &&
-            parameters[0].ParameterType == typeof(BotifyContext);
-
-        if (!valid)
-            throw new InvalidOperationException(
-                $"Method '{method.DeclaringType?.FullName}.{method.Name}' must have signature: Task {method.Name}(BotifyContext context)");
     }
 
     private static PaymentInfo CreatePaymentInfo(

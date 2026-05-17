@@ -1,4 +1,5 @@
 ﻿using Botify.Attributes;
+using Botify.Factories;
 using Botify.Models;
 using Botify.Services;
 using Microsoft.Extensions.DependencyInjection;
@@ -13,6 +14,7 @@ internal sealed class InlineHandler
 {
     private readonly IServiceProvider _serviceProvider;
     private readonly BotifyOptionsBuilder _options;
+    private readonly BotifyContextFactory _contextFactory;
     private readonly LoggerService _logger;
 
     private readonly Dictionary<string, InlineInfo> _inlineMap = new();
@@ -20,10 +22,12 @@ internal sealed class InlineHandler
     public InlineHandler(
         IServiceProvider serviceProvider,
         BotifyOptionsBuilder options,
+        BotifyContextFactory contextFactory,
         LoggerService logger)
     {
         _serviceProvider = serviceProvider;
         _options = options;
+        _contextFactory = contextFactory;
         _logger = logger;
 
         LoadInlines();
@@ -68,7 +72,9 @@ internal sealed class InlineHandler
                     if (attr == null)
                         continue;
 
-                    ValidateMethodSignature(method);
+                    if (!BotifyContextFactory.ValidateMethodSignature(method))
+                        throw new InvalidOperationException(
+                            $"Method '{method.DeclaringType?.FullName}.{method.Name}' must have signature: Task {method.Name}(BotifyContext context)");
 
                     var inlineName = attr.Name.ToLowerInvariant();
 
@@ -107,40 +113,21 @@ internal sealed class InlineHandler
 
         var inlineName = parts[0].ToLowerInvariant();
 
+        var context = _contextFactory.Create(client, update, cancellationToken);
+
         if (!_inlineMap.TryGetValue(inlineName, out var inline))
         {
             _logger.Log(
                 $"Unknown inline '{inlineName}' from ID: {inlineQuery.From.Id}",
                 LogLevel.Debug);
 
+            if (_options.UnknownInlineHandler != null)
+                await _options.UnknownInlineHandler(context);
+
             return;
         }
 
-        var context = new BotifyContext
-        {
-            Client = client,
-            Update = update,
-            CancellationToken = cancellationToken,
-            Services = _serviceProvider,
-            Logger = _logger,
-            Options = _options
-        };
-
         await inline.Delegate(context);
-    }
-
-    private static void ValidateMethodSignature(MethodInfo method)
-    {
-        var parameters = method.GetParameters();
-
-        var valid =
-            method.ReturnType == typeof(Task) &&
-            parameters.Length == 1 &&
-            parameters[0].ParameterType == typeof(BotifyContext);
-
-        if (!valid)
-            throw new InvalidOperationException(
-                $"Method '{method.DeclaringType?.FullName}.{method.Name}' must have signature: Task {method.Name}(BotifyContext context)");
     }
 
     private static InlineInfo CreateInlineInfo(

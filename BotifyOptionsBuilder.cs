@@ -71,6 +71,12 @@ public class BotifyOptionsBuilder
     /// </remarks>
     public HttpClientHandler? HttpClientHandler { get; private set; }
 
+    public Func<BotifyContext, Task>? UnknownCommandHandler { get; set; }
+
+    public Func<BotifyContext, Task>? UnknownCallbackHandler { get; set; }
+
+    public Func<BotifyContext, Task>? UnknownInlineHandler { get; set; }
+
     /// <summary>
     /// Устанавливает токен Telegram-бота.
     /// </summary>
