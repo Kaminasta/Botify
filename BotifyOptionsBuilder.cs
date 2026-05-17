@@ -71,10 +71,40 @@ public class BotifyOptionsBuilder
     /// </remarks>
     public HttpClientHandler? HttpClientHandler { get; private set; }
 
+    /// <summary>
+    /// Обработчик неизвестных Telegram-команд.
+    /// </summary>
+    /// <remarks>
+    /// Вызывается, если команда не была найдена
+    /// среди зарегистрированных обработчиков.
+    ///
+    /// Если значение равно <see langword="null"/>,
+    /// Botify не выполняет никаких действий.
+    /// </remarks>
     public Func<BotifyContext, Task>? UnknownCommandHandler { get; set; }
 
+    /// <summary>
+    /// Обработчик неизвестных callback-запросов.
+    /// </summary>
+    /// <remarks>
+    /// Вызывается, если callback не был найден
+    /// среди зарегистрированных обработчиков.
+    ///
+    /// Если значение равно <see langword="null"/>,
+    /// Botify не выполняет никаких действий.
+    /// </remarks>
     public Func<BotifyContext, Task>? UnknownCallbackHandler { get; set; }
 
+    /// <summary>
+    /// Обработчик неизвестных inline-запросов.
+    /// </summary>
+    /// <remarks>
+    /// Вызывается, если inline-запрос не был найден
+    /// среди зарегистрированных обработчиков.
+    ///
+    /// Если значение равно <see langword="null"/>,
+    /// Botify не выполняет никаких действий.
+    /// </remarks>
     public Func<BotifyContext, Task>? UnknownInlineHandler { get; set; }
 
     /// <summary>
