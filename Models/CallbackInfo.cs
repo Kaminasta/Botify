@@ -2,14 +2,12 @@
 
 namespace Botify.Models;
 
-internal class CallbackInfo
+internal sealed class CallbackInfo
 {
-    public object Instance { get; }
-    public MethodInfo Method { get; }
+    public Func<BotifyContext, Task> Delegate { get; }
 
-    public CallbackInfo(object instance, MethodInfo method)
+    public CallbackInfo(Func<BotifyContext, Task> @delegate)
     {
-        Instance = instance;
-        Method = method;
+        Delegate = @delegate;
     }
 }

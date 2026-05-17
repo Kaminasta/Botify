@@ -9,7 +9,7 @@ using Telegram.Bot.Types;
 
 namespace Botify.Handlers;
 
-internal class InlineHandler
+internal sealed class InlineHandler
 {
     private readonly IServiceProvider _serviceProvider;
     private readonly BotifyOptionsBuilder _options;
@@ -35,9 +35,23 @@ internal class InlineHandler
 
         foreach (var assembly in assemblies)
         {
-            foreach (var type in assembly.GetTypes())
+            Type[] types;
+
+            try
             {
-                if (!type.IsClass)
+                types = assembly.GetTypes();
+            }
+            catch (ReflectionTypeLoadException ex)
+            {
+                types = ex.Types
+                    .Where(t => t != null)
+                    .Cast<Type>()
+                    .ToArray();
+            }
+
+            foreach (var type in types)
+            {
+                if (!type.IsClass || type.IsAbstract)
                     continue;
 
                 if (type.GetCustomAttribute<InlineHandlerAttribute>() == null)
@@ -50,15 +64,16 @@ internal class InlineHandler
                 foreach (var method in methods)
                 {
                     var attr = method.GetCustomAttribute<InlineAttribute>();
+
                     if (attr == null)
                         continue;
 
-                    var inlineName = attr.Name.ToLower();
+                    ValidateMethodSignature(method);
 
-                    if (_inlineMap.ContainsKey(inlineName))
-                        throw new Exception($"Inline '{inlineName}' already registered");
+                    var inlineName = attr.Name.ToLowerInvariant();
 
-                    _inlineMap[inlineName] = new InlineInfo(instance!, method);
+                    if (!_inlineMap.TryAdd(inlineName, CreateInlineInfo(instance, method)))
+                        throw new InvalidOperationException($"Inline '{inlineName}' already registered.");
 
                     _logger.Log(
                         $"Inline '{inlineName}' -> {type.FullName}.{method.Name}",
@@ -83,30 +98,58 @@ internal class InlineHandler
         if (string.IsNullOrWhiteSpace(queryText))
             return;
 
-        var parts = queryText.Split(_options.InlineSplitChar);
-        var inline = parts[0].ToLower();
+        var parts = queryText.Split(
+            _options.InlineSplitChar,
+            StringSplitOptions.RemoveEmptyEntries);
 
-        if (!_inlineMap.TryGetValue(inline, out InlineInfo? inlineInfo))
+        if (parts.Length == 0)
+            return;
+
+        var inlineName = parts[0].ToLowerInvariant();
+
+        if (!_inlineMap.TryGetValue(inlineName, out var inline))
         {
             _logger.Log(
-                $"Неизвестный inline: {inline} от ID: {inlineQuery.From.Id}",
+                $"Unknown inline '{inlineName}' from ID: {inlineQuery.From.Id}",
                 LogLevel.Debug);
+
             return;
         }
 
-        var parameters = inlineInfo.Method.GetParameters();
-        object?[] args;
+        var context = new BotifyContext
+        {
+            Client = client,
+            Update = update,
+            CancellationToken = cancellationToken,
+            Services = _serviceProvider,
+            Logger = _logger,
+            Options = _options
+        };
 
-        if (parameters.Length == 3)
-            args = [client, update, cancellationToken];
-        else if (parameters.Length == 2)
-            args = [client, update];
-        else
-            args = Array.Empty<object>();
+        await inline.Delegate(context);
+    }
 
-        var result = inlineInfo.Method.Invoke(inlineInfo.Instance, args);
+    private static void ValidateMethodSignature(MethodInfo method)
+    {
+        var parameters = method.GetParameters();
 
-        if (result is Task task)
-            await task;
+        var valid =
+            method.ReturnType == typeof(Task) &&
+            parameters.Length == 1 &&
+            parameters[0].ParameterType == typeof(BotifyContext);
+
+        if (!valid)
+            throw new InvalidOperationException(
+                $"Method '{method.DeclaringType?.FullName}.{method.Name}' must have signature: Task {method.Name}(BotifyContext context)");
+    }
+
+    private static InlineInfo CreateInlineInfo(
+        object instance,
+        MethodInfo method)
+    {
+        var del = (Func<BotifyContext, Task>)
+            Delegate.CreateDelegate(typeof(Func<BotifyContext, Task>), instance, method);
+
+        return new InlineInfo(del);
     }
 }

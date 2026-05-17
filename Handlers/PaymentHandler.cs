@@ -10,18 +10,21 @@ using static Botify.Models.PaymentInfo;
 
 namespace Botify.Handlers;
 
-internal class PaymentHandler
+internal sealed class PaymentHandler
 {
     private readonly IServiceProvider _serviceProvider;
+    private readonly BotifyOptionsBuilder _options;
     private readonly LoggerService _logger;
 
     private readonly List<PaymentInfo> _handlers = new();
 
     public PaymentHandler(
         IServiceProvider serviceProvider,
+        BotifyOptionsBuilder options,
         LoggerService logger)
     {
         _serviceProvider = serviceProvider;
+        _options = options;
         _logger = logger;
 
         LoadHandlers();
@@ -33,9 +36,23 @@ internal class PaymentHandler
 
         foreach (var assembly in assemblies)
         {
-            foreach (var type in assembly.GetTypes())
+            Type[] types;
+
+            try
             {
-                if (!type.IsClass)
+                types = assembly.GetTypes();
+            }
+            catch (ReflectionTypeLoadException ex)
+            {
+                types = ex.Types
+                    .Where(t => t != null)
+                    .Cast<Type>()
+                    .ToArray();
+            }
+
+            foreach (var type in types)
+            {
+                if (!type.IsClass || type.IsAbstract)
                     continue;
 
                 if (type.GetCustomAttribute<PaymentHandlerAttribute>() == null)
@@ -45,19 +62,40 @@ internal class PaymentHandler
 
                 foreach (var method in type.GetMethods(BindingFlags.Public | BindingFlags.Instance))
                 {
+                    PaymentType? paymentType = null;
+
                     if (method.GetCustomAttribute<SuccessfulPaymentAttribute>() != null)
-                        _handlers.Add(new PaymentInfo(instance!, method, PaymentType.SuccessfulPayment));
+                        paymentType = PaymentType.SuccessfulPayment;
 
                     if (method.GetCustomAttribute<PreCheckoutPaymentAttribute>() != null)
-                        _handlers.Add(new PaymentInfo(instance!, method, PaymentType.PreCheckout));
+                        paymentType = PaymentType.PreCheckout;
+
+                    if (paymentType == null)
+                        continue;
+
+                    ValidateMethodSignature(method);
+
+                    _handlers.Add(CreatePaymentInfo(
+                        instance,
+                        method,
+                        paymentType.Value));
+
+                    _logger.Log(
+                        $"Payment handler '{paymentType}' -> {type.FullName}.{method.Name}",
+                        LogLevel.Debug);
                 }
             }
         }
 
-        _logger.Log($"Loaded {_handlers.Count} payment handlers", LogLevel.Debug);
+        _logger.Log(
+            $"Loaded {_handlers.Count} payment handlers",
+            LogLevel.Debug);
     }
 
-    public async Task<bool> HandleAsync(ITelegramBotClient client, Update update, CancellationToken cancellationToken)
+    public async Task<bool> HandleAsync(
+        ITelegramBotClient client,
+        Update update,
+        CancellationToken cancellationToken)
     {
         PaymentType? type = null;
 
@@ -69,23 +107,51 @@ internal class PaymentHandler
         if (type == null)
             return false;
 
-        var handlersToInvoke = _handlers.Where(h => h.Type == type).ToList();
+        var handlersToInvoke = _handlers
+            .Where(h => h.Type == type)
+            .ToList();
+
+        if (handlersToInvoke.Count == 0)
+            return false;
+
+        var context = new BotifyContext
+        {
+            Client = client,
+            Update = update,
+            CancellationToken = cancellationToken,
+            Services = _serviceProvider,
+            Logger = _logger,
+            Options = _options
+        };
 
         foreach (var handler in handlersToInvoke)
-        {
-            var parameters = handler.Method.GetParameters();
-            object?[] args = parameters.Length switch
-            {
-                3 => [client, update, cancellationToken],
-                2 => [client, update],
-                _ => Array.Empty<object>()
-            };
-
-            var result = handler.Method.Invoke(handler.Instance, args);
-            if (result is Task task)
-                await task;
-        }
+            await handler.Delegate(context);
 
         return true;
+    }
+
+    private static void ValidateMethodSignature(MethodInfo method)
+    {
+        var parameters = method.GetParameters();
+
+        var valid =
+            method.ReturnType == typeof(Task) &&
+            parameters.Length == 1 &&
+            parameters[0].ParameterType == typeof(BotifyContext);
+
+        if (!valid)
+            throw new InvalidOperationException(
+                $"Method '{method.DeclaringType?.FullName}.{method.Name}' must have signature: Task {method.Name}(BotifyContext context)");
+    }
+
+    private static PaymentInfo CreatePaymentInfo(
+        object instance,
+        MethodInfo method,
+        PaymentType paymentType)
+    {
+        var del = (Func<BotifyContext, Task>)
+            Delegate.CreateDelegate(typeof(Func<BotifyContext, Task>), instance, method);
+
+        return new PaymentInfo(del, paymentType);
     }
 }

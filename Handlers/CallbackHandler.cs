@@ -9,7 +9,7 @@ using Telegram.Bot.Types;
 
 namespace Botify.Handlers;
 
-internal class CallbackHandler
+internal sealed class CallbackHandler
 {
     private readonly IServiceProvider _serviceProvider;
     private readonly BotifyOptionsBuilder _options;
@@ -35,9 +35,23 @@ internal class CallbackHandler
 
         foreach (var assembly in assemblies)
         {
-            foreach (var type in assembly.GetTypes())
+            Type[] types;
+
+            try
             {
-                if (!type.IsClass)
+                types = assembly.GetTypes();
+            }
+            catch (ReflectionTypeLoadException ex)
+            {
+                types = ex.Types
+                    .Where(t => t != null)
+                    .Cast<Type>()
+                    .ToArray();
+            }
+
+            foreach (var type in types)
+            {
+                if (!type.IsClass || type.IsAbstract)
                     continue;
 
                 if (type.GetCustomAttribute<CallbackHandlerAttribute>() == null)
@@ -50,60 +64,92 @@ internal class CallbackHandler
                 foreach (var method in methods)
                 {
                     var attr = method.GetCustomAttribute<CallbackAttribute>();
+
                     if (attr == null)
                         continue;
 
-                    var callbackName = attr.Name.ToLower();
+                    ValidateMethodSignature(method);
 
-                    if (_callbackMap.ContainsKey(callbackName))
-                        throw new Exception($"Callback '{callbackName}' already registered");
+                    var callbackName = attr.Name.ToLowerInvariant();
 
-                    _callbackMap[callbackName] = new CallbackInfo(instance!, method);
+                    if (!_callbackMap.TryAdd(callbackName, CreateCallbackInfo(instance, method)))
+                        throw new InvalidOperationException($"Callback '{callbackName}' already registered.");
 
-                    _logger.Log($"Callback '{callbackName}' -> {type.FullName}.{method.Name}", LogLevel.Debug);
+                    _logger.Log(
+                        $"Callback '{callbackName}' -> {type.FullName}.{method.Name}",
+                        LogLevel.Debug);
                 }
             }
         }
     }
 
-    public async Task HandleAsync(ITelegramBotClient client, Update update, CancellationToken cancellationToken)
+    public async Task HandleAsync(
+        ITelegramBotClient client,
+        Update update,
+        CancellationToken cancellationToken)
     {
         var query = update.CallbackQuery;
 
-        if (query == null)
+        if (query?.Data == null)
             return;
 
-        var queryId = query.Id;
-        var from = query.From;
-        var callbackData = query.Data;
+        var parts = query.Data.Split(_options.CallbackSplitChar);
 
-        if (string.IsNullOrEmpty(callbackData))
+        if (parts.Length == 0)
             return;
 
-        var parts = callbackData.Split(_options.CallbackSplitChar);
+        var callbackName = parts[0].ToLowerInvariant();
 
-        var callback = parts[0].ToLower();
-
-        if (!_callbackMap.TryGetValue(callback, out CallbackInfo? cbInfo))
+        if (!_callbackMap.TryGetValue(callbackName, out var callback))
         {
-            _logger.Log($"Неизвестный коллбек: {callback} от ID: {from.Id}", LogLevel.Debug);
-            await client.AnswerCallbackQuery(queryId, $"Неизвестный коллбек: {callback}");
+            _logger.Log(
+                $"Unknown callback '{callbackName}' from ID: {query.From.Id}",
+                LogLevel.Debug);
+
+            // TODO: Вынести AnswerCallbackQuery отсюда и передать управление разработчику
+
+            await client.AnswerCallbackQuery(
+                query.Id,
+                $"Unknown callback: {callbackName}",
+                cancellationToken: cancellationToken);
+
             return;
         }
 
-        var parameters = cbInfo.Method.GetParameters();
-        object?[] args;
+        var context = new BotifyContext
+        {
+            Client = client,
+            Update = update,
+            CancellationToken = cancellationToken,
+            Services = _serviceProvider,
+            Logger = _logger,
+            Options = _options
+        };
 
-        if (parameters.Length == 3)
-            args = [client, update, cancellationToken];
-        else if (parameters.Length == 2)
-            args = [client, update];
-        else
-            args = Array.Empty<object>();
+        await callback.Delegate(context);
+    }
 
-        var result = cbInfo.Method.Invoke(cbInfo.Instance, args);
+    private static void ValidateMethodSignature(MethodInfo method)
+    {
+        var parameters = method.GetParameters();
 
-        if (result is Task task)
-            await task;
+        var valid =
+            method.ReturnType == typeof(Task) &&
+            parameters.Length == 1 &&
+            parameters[0].ParameterType == typeof(BotifyContext);
+
+        if (!valid)
+            throw new InvalidOperationException(
+                $"Method '{method.DeclaringType?.FullName}.{method.Name}' must have signature: Task MethodName(BotifyContext context)");
+    }
+
+    private static CallbackInfo CreateCallbackInfo(
+        object instance,
+        MethodInfo method)
+    {
+        var del = (Func<BotifyContext, Task>)
+            Delegate.CreateDelegate(typeof(Func<BotifyContext, Task>), instance, method);
+
+        return new CallbackInfo(del);
     }
 }

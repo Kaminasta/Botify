@@ -4,12 +4,10 @@ namespace Botify.Models;
 
 internal class InlineInfo
 {
-    public object Instance { get; }
-    public MethodInfo Method { get; }
+    public Func<BotifyContext, Task> Delegate { get; }
 
-    public InlineInfo(object instance, MethodInfo method)
+    public InlineInfo(Func<BotifyContext, Task> @delegate)
     {
-        Instance = instance;
-        Method = method;
+        Delegate = @delegate;
     }
 }

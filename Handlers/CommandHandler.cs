@@ -10,7 +10,7 @@ using Telegram.Bot.Types.Enums;
 
 namespace Botify.Handlers;
 
-internal class CommandHandler
+internal sealed class CommandHandler
 {
     private readonly IServiceProvider _serviceProvider;
     private readonly BotClientService _botClient;
@@ -18,11 +18,12 @@ internal class CommandHandler
     private readonly LoggerService _logger;
 
     private readonly Dictionary<string, CommandInfo> _commandMap = new();
+    private readonly List<BotCommand> _telegramCommands = new();
 
     public CommandHandler(
-        IServiceProvider serviceProvider, 
-        BotClientService botClient, 
-        BotifyOptionsBuilder options, 
+        IServiceProvider serviceProvider,
+        BotClientService botClient,
+        BotifyOptionsBuilder options,
         LoggerService logger)
     {
         _serviceProvider = serviceProvider;
@@ -33,23 +34,35 @@ internal class CommandHandler
         LoadCommands();
     }
 
-    private async void LoadCommands()
+    private void LoadCommands()
     {
         var assemblies = AppDomain.CurrentDomain.GetAssemblies();
-        var telegramCommands = new List<BotCommand>();
 
         foreach (var assembly in assemblies)
         {
-            foreach (var type in assembly.GetTypes())
+            Type[] types;
+
+            try
             {
-                if (!type.IsClass)
+                types = assembly.GetTypes();
+            }
+            catch (ReflectionTypeLoadException ex)
+            {
+                types = ex.Types
+                    .Where(t => t != null)
+                    .Cast<Type>()
+                    .ToArray();
+            }
+
+            foreach (var type in types)
+            {
+                if (!type.IsClass || type.IsAbstract)
                     continue;
 
                 if (type.GetCustomAttribute<CommandHandlerAttribute>() == null)
                     continue;
 
                 var instance = _serviceProvider.GetRequiredService(type);
-
                 var methods = type.GetMethods(BindingFlags.Public | BindingFlags.Instance);
 
                 foreach (var method in methods)
@@ -58,60 +71,104 @@ internal class CommandHandler
                     if (attr == null)
                         continue;
 
-                    var commandName = attr.Name.ToLower();
-                    var commandDescription = attr.Description;
+                    ValidateMethodSignature(method);
 
-                    if (_commandMap.ContainsKey(commandName))
-                        throw new Exception($"Command '{commandName}' already registered");
+                    var commandName = attr.Name.ToLowerInvariant();
 
-                    _commandMap[commandName] = new CommandInfo(instance!, method);
+                    if (!_commandMap.TryAdd(commandName, CreateCommandInfo(instance, method)))
+                        throw new InvalidOperationException($"Command '{commandName}' already registered.");
 
-                    if(!string.IsNullOrEmpty(commandDescription))
-                        telegramCommands.Add(new BotCommand(commandName, commandDescription));
+                    if (!string.IsNullOrWhiteSpace(attr.Description))
+                        _telegramCommands.Add(new BotCommand(commandName, attr.Description));
 
-                    _logger.Log($"Command '{commandName}' -> {type.FullName}.{method.Name}", LogLevel.Debug);
+                    _logger.Log(
+                        $"Command '{commandName}' -> {type.FullName}.{method.Name}",
+                        LogLevel.Debug);
                 }
             }
         }
-
-        await _botClient.Client.SetMyCommands(telegramCommands);
     }
 
-    public async Task<bool> HandleAsync(ITelegramBotClient client, Update update, CancellationToken cancellationToken)
+    public async Task InitializeAsync(CancellationToken cancellationToken = default)
+    {
+        if (_telegramCommands.Count == 0)
+            return;
+
+        await _botClient.Client.SetMyCommands(
+            _telegramCommands,
+            cancellationToken: cancellationToken);
+    }
+
+    public async Task<bool> HandleAsync(
+        ITelegramBotClient client,
+        Update update,
+        CancellationToken cancellationToken)
     {
         var message = update.Message;
+
         if (message == null || message.Type != MessageType.Text)
             return false;
 
-        var text = message.Text!;
+        var text = message.Text;
+        if (string.IsNullOrWhiteSpace(text))
+            return false;
+
         if (!text.StartsWith(_options.CommandStartChar))
             return false;
 
-        var parts = text.Substring(1).Split(' ');
-        var command = parts[0].ToLower();
+        var parts = text.Substring(1).Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length == 0)
+            return false;
 
-        if (!_commandMap.TryGetValue(command, out CommandInfo? cmdInfo))
+        var commandName = parts[0].Split('@', 2)[0].ToLowerInvariant();
+
+        if (!_commandMap.TryGetValue(commandName, out var command))
         {
-            _logger.Log($"Неизвестная команда: {command}", LogLevel.Debug);
-            await _botClient.Client.SendMessage(message.Chat.Id, $"Неизвестная команда: {command}");
+            _logger.Log($"Unknown command: {commandName}", LogLevel.Debug);
+
+            // TODO: Вынести SendMessage отсюда и передать управление разработчику
+
+            await client.SendMessage(
+                message.Chat.Id,
+                $"Unknown command: {commandName}",
+                cancellationToken: cancellationToken);
+
             return false;
         }
 
-        var parameters = cmdInfo.Method.GetParameters();
-        object?[] args;
+        var context = new BotifyContext
+        {
+            Client = client,
+            Update = update,
+            CancellationToken = cancellationToken,
+            Services = _serviceProvider,
+            Logger = _logger,
+            Options = _options
+        };
 
-        if (parameters.Length == 3)
-            args = [client, update, cancellationToken];
-        else if (parameters.Length == 2)
-            args = [client, update];
-        else
-            args = Array.Empty<object>();
-
-        var result = cmdInfo.Method.Invoke(cmdInfo.Instance, args);
-
-        if (result is Task task)
-            await task;
-
+        await command.Delegate(context);
         return true;
+    }
+
+    private static void ValidateMethodSignature(MethodInfo method)
+    {
+        var parameters = method.GetParameters();
+
+        var valid =
+            method.ReturnType == typeof(Task) &&
+            parameters.Length == 1 &&
+            parameters[0].ParameterType == typeof(BotifyContext);
+
+        if (!valid)
+            throw new InvalidOperationException(
+                $"Method '{method.DeclaringType?.FullName}.{method.Name}' must have signature: Task {method.Name}(BotifyContext context)");
+    }
+
+    private static CommandInfo CreateCommandInfo(object instance, MethodInfo method)
+    {
+        var del = (Func<BotifyContext, Task>)
+            Delegate.CreateDelegate(typeof(Func<BotifyContext, Task>), instance, method);
+
+        return new CommandInfo(del);
     }
 }

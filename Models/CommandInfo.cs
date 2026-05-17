@@ -4,12 +4,10 @@ namespace Botify.Models;
 
 internal class CommandInfo
 {
-    public object Instance { get; }
-    public MethodInfo Method { get; }
+    public Func<BotifyContext, Task> Delegate { get; }
 
-    public CommandInfo(object instance, MethodInfo method)
+    public CommandInfo(Func<BotifyContext, Task> @delegate)
     {
-        Instance = instance;
-        Method = method;
+        Delegate = @delegate;
     }
 }

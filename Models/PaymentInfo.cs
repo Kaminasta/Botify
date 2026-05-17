@@ -4,8 +4,7 @@ namespace Botify.Models;
 
 internal class PaymentInfo
 {
-    public object Instance { get; }
-    public MethodInfo Method { get; }
+    public Func<BotifyContext, Task> Delegate { get; }
     public PaymentType Type { get; }
 
     public enum PaymentType
@@ -14,10 +13,9 @@ internal class PaymentInfo
         PreCheckout
     }
 
-    public PaymentInfo(object instance, MethodInfo method, PaymentType type)
+    public PaymentInfo(Func<BotifyContext, Task> @delegate, PaymentType paymentType)
     {
-        Instance = instance;
-        Method = method;
-        Type = type;
+        Delegate = @delegate;
+        Type = paymentType;
     }
 }
