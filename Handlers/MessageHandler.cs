@@ -76,7 +76,7 @@ internal sealed class MessageHandler
                         throw new InvalidOperationException(
                             $"Method '{method.DeclaringType?.FullName}.{method.Name}' must have signature: Task {method.Name}(BotifyContext context)");
 
-                    var info = CreateMessageInfo(instance, method);
+                    var info = CreateMessageInfo(instance, type, method);
 
                     info.Pattern = attr.Pattern;
                     info.Regex = attr.Regex;
@@ -109,29 +109,32 @@ internal sealed class MessageHandler
                     ? message.Caption
                     : string.Empty;
 
-        foreach (var handler in _messageHandlers)
+        foreach (var msg in _messageHandlers)
         {
-            if (!handler.Types.Contains(message.Type))
+            if (!msg.Types.Contains(message.Type))
                 continue;
 
-            if (!handler.Regex.IsMatch(text))
+            if (!msg.Regex.IsMatch(text))
                 continue;
 
             var context = _contextFactory.Create(client, update, cancellationToken);
 
-            await handler.Delegate(context);
+            if (!await ValidatorHelper.ValidateAsync(context, msg))
+                return;
+
+            await msg.Delegate(context);
 
             break;
         }
     }
 
-    private static MessageInfo CreateMessageInfo(
-        object instance,
-        MethodInfo method)
+    private static MessageInfo CreateMessageInfo(object instance, Type type, MethodInfo method)
     {
         var del = (Func<BotifyContext, Task>)
             Delegate.CreateDelegate(typeof(Func<BotifyContext, Task>), instance, method);
 
-        return new MessageInfo(del);
+        var validators = ValidatorHelper.GetValidators(type, method);
+
+        return new MessageInfo(del, validators);
     }
 }

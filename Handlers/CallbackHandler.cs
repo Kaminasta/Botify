@@ -1,5 +1,6 @@
 ﻿using Botify.Attributes;
 using Botify.Factories;
+using Botify.Interfaces;
 using Botify.Models;
 using Botify.Services;
 using Microsoft.Extensions.DependencyInjection;
@@ -78,7 +79,7 @@ internal sealed class CallbackHandler
 
                     var callbackName = attr.Name.ToLowerInvariant();
 
-                    if (!_callbackMap.TryAdd(callbackName, CreateCallbackInfo(instance, method)))
+                    if (!_callbackMap.TryAdd(callbackName, CreateCallbackInfo(instance, type, method)))
                         throw new InvalidOperationException($"Callback '{callbackName}' already registered.");
 
                     _logger.Log(
@@ -120,16 +121,19 @@ internal sealed class CallbackHandler
             return;
         }
 
+        if (!await ValidatorHelper.ValidateAsync(context, callback))
+            return;
+
         await callback.Delegate(context);
     }
 
-    private static CallbackInfo CreateCallbackInfo(
-        object instance,
-        MethodInfo method)
+    private static CallbackInfo CreateCallbackInfo(object instance, Type type, MethodInfo method)
     {
         var del = (Func<BotifyContext, Task>)
             Delegate.CreateDelegate(typeof(Func<BotifyContext, Task>), instance, method);
 
-        return new CallbackInfo(del);
+        var validators = ValidatorHelper.GetValidators(type, method);
+
+        return new CallbackInfo(del, validators);
     }
 }

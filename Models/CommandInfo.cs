@@ -1,13 +1,12 @@
-﻿using System.Reflection;
+﻿using Botify.Attributes;
+using Botify.Interfaces;
 
 namespace Botify.Models;
 
-internal class CommandInfo
+internal sealed class CommandInfo(
+    Func<BotifyContext, Task> @delegate, 
+    IReadOnlyList<UseValidatorAttribute> validators) : IValidatable
 {
-    public Func<BotifyContext, Task> Delegate { get; }
-
-    public CommandInfo(Func<BotifyContext, Task> @delegate)
-    {
-        Delegate = @delegate;
-    }
+    public Func<BotifyContext, Task> Delegate { get; } = @delegate;
+    public IReadOnlyList<UseValidatorAttribute> Validators { get; } = validators;
 }

@@ -1,6 +1,7 @@
 ﻿using Botify.Attributes;
 using Botify.Factories;
 using Botify.Handlers;
+using Botify.Interfaces;
 using Botify.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -70,6 +71,12 @@ public static class ServiceCollectionExtensions
         {
             if (!type.IsClass || type.IsAbstract)
                 continue;
+
+            if (typeof(IBotifyValidator).IsAssignableFrom(type))
+            {
+                services.AddTransient(type);
+                continue;
+            }
 
             if (type.GetCustomAttribute<CommandHandlerAttribute>() != null ||
                 type.GetCustomAttribute<CallbackHandlerAttribute>() != null ||

@@ -78,7 +78,7 @@ internal sealed class InlineHandler
 
                     var inlineName = attr.Name.ToLowerInvariant();
 
-                    if (!_inlineMap.TryAdd(inlineName, CreateInlineInfo(instance, method)))
+                    if (!_inlineMap.TryAdd(inlineName, CreateInlineInfo(instance, type, method)))
                         throw new InvalidOperationException($"Inline '{inlineName}' already registered.");
 
                     _logger.Log(
@@ -127,16 +127,19 @@ internal sealed class InlineHandler
             return;
         }
 
+        if (!await ValidatorHelper.ValidateAsync(context, inline))
+            return;
+
         await inline.Delegate(context);
     }
 
-    private static InlineInfo CreateInlineInfo(
-        object instance,
-        MethodInfo method)
+    private static InlineInfo CreateInlineInfo(object instance, Type type, MethodInfo method)
     {
         var del = (Func<BotifyContext, Task>)
             Delegate.CreateDelegate(typeof(Func<BotifyContext, Task>), instance, method);
 
-        return new InlineInfo(del);
+        var validators = ValidatorHelper.GetValidators(type, method);
+
+        return new InlineInfo(del, validators);
     }
 }

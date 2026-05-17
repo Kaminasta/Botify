@@ -81,7 +81,7 @@ internal sealed class CommandHandler
 
                     var commandName = attr.Name.ToLowerInvariant();
 
-                    if (!_commandMap.TryAdd(commandName, CreateCommandInfo(instance, method)))
+                    if (!_commandMap.TryAdd(commandName, CreateCommandInfo(instance, type, method)))
                         throw new InvalidOperationException($"Command '{commandName}' already registered.");
 
                     if (!string.IsNullOrWhiteSpace(attr.Description))
@@ -140,15 +140,20 @@ internal sealed class CommandHandler
             return false;
         }
 
+        if (!await ValidatorHelper.ValidateAsync(context, command))
+            return true;
+
         await command.Delegate(context);
         return true;
     }
 
-    private static CommandInfo CreateCommandInfo(object instance, MethodInfo method)
+    private static CommandInfo CreateCommandInfo(object instance, Type type, MethodInfo method)
     {
         var del = (Func<BotifyContext, Task>)
             Delegate.CreateDelegate(typeof(Func<BotifyContext, Task>), instance, method);
 
-        return new CommandInfo(del);
+        var validators = ValidatorHelper.GetValidators(type, method);
+
+        return new CommandInfo(del, validators);
     }
 }
